@@ -116,11 +116,12 @@ function AttachmentViewer({ attachment, onClose }) {
 
       case 'video':
         return (
-          <div className="max-h-96">
+          <div className="w-full h-full flex items-center justify-center">
             <video
               src={objectUrl}
               controls
-              className="max-w-full h-auto rounded-lg"
+              className="max-w-full max-h-full w-auto h-auto rounded-lg"
+              style={{ maxHeight: '80vh' }}
               onLoadedData={() => setIsLoading(false)}
               onError={() => setError('Failed to load video')}
             >
@@ -235,6 +236,31 @@ function AttachmentViewer({ attachment, onClose }) {
           </button>
           
           {/* Image content */}
+          <div className="w-full h-full flex items-center justify-center">
+            {renderAttachment()}
+          </div>
+        </div>
+      ) : attachment.type === 'video' ? (
+        /* Video-only view - clean and minimal */
+        <div ref={modalRef} className="relative w-full h-full flex items-center justify-center">
+          {/* Close button - floating */}
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 z-10 px-3 py-2 bg-black bg-opacity-50 hover:bg-opacity-70 rounded-full text-white text-sm transition-all"
+          >
+            ✕
+          </button>
+          
+          {/* Download button - floating */}
+          <button
+            onClick={handleDownload}
+            className="absolute top-4 right-16 z-10 px-3 py-2 bg-black bg-opacity-50 hover:bg-opacity-70 rounded-full text-white text-sm transition-all"
+            title="Download"
+          >
+            💾
+          </button>
+          
+          {/* Video content */}
           <div className="w-full h-full flex items-center justify-center">
             {renderAttachment()}
           </div>

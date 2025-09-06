@@ -2,8 +2,11 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { ZipHandler } from './utils/zipHandler';
 import { parseChat, formatMessageText } from './utils/chatParser';
 import AttachmentViewer from './components/AttachmentViewer';
+import Poll from './components/Poll';
 import { useObjectUrls } from './hooks/useObjectUrls';
 import { createColorMap } from './utils/colors';
+import { parsePollMessage } from './utils/pollParser';
+import backgroundImage from './assets/bg-dark-BnMQztzI.png';
 
 /**
  * Main App Component
@@ -223,7 +226,7 @@ function App() {
           ) : (
             /* Show chat interface */
                    <div className="w-full h-full overflow-y-auto bg-whatsapp-dark" style={{
-                     backgroundImage: `url("/bg-dark-BnMQztzI.png")`,
+                     backgroundImage: `url("${backgroundImage}")`,
                      backgroundRepeat: 'repeat',
                      backgroundSize: 'auto'
                    }}>
@@ -246,11 +249,29 @@ function App() {
                            const prevMessage = messages[index - 1];
                            const sameSenderAsPrevious = prevMessage && 
                              prevMessage.sender === message.sender && 
+                             prevMessage.date === message.date &&
                              !isSystemMessage && 
-                             prevMessage.type !== 'system';
+                             prevMessage.type !== 'system' &&
+                             prevMessage.sender !== 'System';
                            
                            // Get user color
                            const userColor = colorMap[message.sender] || '#6B7280';
+                           
+                           // Check if this is a poll message
+                           const pollData = parsePollMessage(message.message);
+                           
+                           // Debug logging for grouping
+                           if (index < 10) {
+                             console.log(`Message ${index}:`, {
+                               sender: message.sender,
+                               prevSender: prevMessage?.sender,
+                               sameSenderAsPrevious,
+                               isOwnMessage,
+                               isSystemMessage,
+                               message: message.message.substring(0, 20) + '...',
+                               cssClass: sameSenderAsPrevious ? 'mt-0' : 'mt-3'
+                             });
+                           }
 
 
                     return (
@@ -273,7 +294,7 @@ function App() {
                                  </div>
                                ) : (
                                  /* Regular Message Bubble */
-                                 <div className={`flex w-full ${isOwnMessage ? 'justify-end' : 'justify-start'} ${sameSenderAsPrevious ? 'mt-0.5' : 'mb-1'}`}>
+                                 <div className={`flex w-full ${isOwnMessage ? 'justify-end' : 'justify-start'} ${sameSenderAsPrevious ? 'mt-0' : 'mt-3'}`}>
                                  <div
                                    className={`max-w-[70%] px-3 py-2 rounded-lg ${
                                      isOwnMessage
@@ -296,7 +317,7 @@ function App() {
                                      </p>
                                    )}
 
-                                   {/* Message Content */}
+                                   {/* Message Content - only show if no attachment or if attachment is not image/video */}
                                    {message.message.includes('<Media omitted>') ? (
                                      /* Media omitted placeholder */
                                      <div className="flex items-center space-x-2 p-3 bg-gray-700 rounded-lg border border-gray-600">
@@ -305,23 +326,35 @@ function App() {
                                          <p className="text-xs text-gray-400">This media was not included in the export</p>
                                        </div>
                                      </div>
-                                   ) : (
-                                     /* Regular message content */
-                                     <p 
-                                       className="text-sm leading-relaxed"
-                                       dangerouslySetInnerHTML={{
-                                         __html: formatMessageText(message.message)
-                                       }}
-                                     />
-                                   )}
+                                   ) : pollData ? (
+                                     /* Poll content */
+                                     <Poll pollData={pollData} />
+                                   ) : !message.attachment || (message.attachment && message.attachment.type !== 'image' && message.attachment.type !== 'video') ? (
+                                     /* Regular message content with inline timestamp */
+                                     <div className="flex items-end justify-end">
+                                       <div className="flex-1">
+                                         <p 
+                                           className="text-sm leading-relaxed"
+                                           dangerouslySetInnerHTML={{
+                                             __html: formatMessageText(message.message)
+                                           }}
+                                         />
+                                       </div>
+                                       <span className={`text-xs ml-2 opacity-70 ${
+                                         isOwnMessage ? 'text-green-100' : 'text-gray-400'
+                                       }`}>
+                                         {message.time}
+                                       </span>
+                                     </div>
+                                   ) : null}
 
-                            {/* Attachment */}
+                            {/* Attachment - show first for images and videos */}
                             {message.attachment && (
                               <div className="mt-2">
                                 {message.attachment.type === 'image' ? (
                                   /* Inline Image Display */
                                   <div 
-                                    className="cursor-pointer rounded-lg overflow-hidden max-w-xs"
+                                    className="cursor-pointer rounded-lg overflow-hidden max-w-xs relative"
                                     onClick={() => setSelectedAttachment(message.attachment)}
                                   >
                                     <img
@@ -333,12 +366,74 @@ function App() {
                                         e.target.nextSibling.style.display = 'block';
                                       }}
                                     />
+                                    
+                                    {/* Timestamp overlay for images - only if no text message */}
+                                    {!message.message.trim() && (
+                                      <div className={`absolute bottom-2 right-2 px-2 py-1 rounded text-xs opacity-80 ${
+                                        isOwnMessage ? 'bg-black bg-opacity-50 text-green-100' : 'bg-black bg-opacity-50 text-gray-300'
+                                      }`}>
+                                        {message.time}
+                                      </div>
+                                    )}
+                                    
                                     <div 
                                       className="hidden p-2 bg-black bg-opacity-20 rounded cursor-pointer hover:bg-opacity-30 transition-colors"
                                       onClick={() => setSelectedAttachment(message.attachment)}
                                     >
                                       <div className="flex items-center space-x-2">
                                         <span className="text-lg">🖼️</span>
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-sm font-medium truncate">{message.attachment.filename}</p>
+                                          <p className="text-xs text-gray-400">Click to view</p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ) : message.attachment.type === 'video' ? (
+                                  /* Inline Video Thumbnail Display */
+                                  <div 
+                                    className="cursor-pointer rounded-lg overflow-hidden max-w-xs relative group"
+                                    onClick={() => setSelectedAttachment(message.attachment)}
+                                  >
+                                    <video
+                                      src={createObjectUrl(message.attachment.blob)}
+                                      className="w-full h-auto rounded-lg"
+                                      preload="metadata"
+                                      onLoadedMetadata={(e) => {
+                                        // Set the video to show the first frame as thumbnail
+                                        e.target.currentTime = 1;
+                                      }}
+                                      onError={(e) => {
+                                        e.target.style.display = 'none';
+                                        e.target.nextSibling.style.display = 'block';
+                                      }}
+                                    />
+                                    
+                                    {/* Play Icon Overlay */}
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 group-hover:bg-opacity-40 transition-all">
+                                      <div className="w-12 h-12 bg-white bg-opacity-90 rounded-full flex items-center justify-center shadow-lg">
+                                        <svg className="w-6 h-6 text-gray-800 ml-1" fill="currentColor" viewBox="0 0 24 24">
+                                          <path d="M8 5v14l11-7z"/>
+                                        </svg>
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Timestamp overlay for videos - only if no text message */}
+                                    {!message.message.trim() && (
+                                      <div className={`absolute bottom-2 right-2 px-2 py-1 rounded text-xs opacity-80 ${
+                                        isOwnMessage ? 'bg-black bg-opacity-50 text-green-100' : 'bg-black bg-opacity-50 text-gray-300'
+                                      }`}>
+                                        {message.time}
+                                      </div>
+                                    )}
+                                    
+                                    {/* Fallback for video load error */}
+                                    <div 
+                                      className="hidden p-2 bg-black bg-opacity-20 rounded cursor-pointer hover:bg-opacity-30 transition-colors"
+                                      onClick={() => setSelectedAttachment(message.attachment)}
+                                    >
+                                      <div className="flex items-center space-x-2">
+                                        <span className="text-lg">🎥</span>
                                         <div className="flex-1 min-w-0">
                                           <p className="text-sm font-medium truncate">{message.attachment.filename}</p>
                                           <p className="text-xs text-gray-400">Click to view</p>
@@ -369,12 +464,26 @@ function App() {
                               </div>
                             )}
 
-                                   {/* Timestamp */}
-                                   <div className={`flex justify-end mt-1 ${
-                                     isOwnMessage ? 'text-green-100' : 'text-gray-400'
-                                   }`}>
-                                     <span className="text-xs opacity-70">{message.date}, {message.time}</span>
-                                   </div>
+                            {/* Text content after image/video - only for messages with image/video attachments */}
+                            {message.attachment && (message.attachment.type === 'image' || message.attachment.type === 'video') && message.message.trim() && (
+                              <div className="mt-2 max-w-xs">
+                                <div className="flex items-end justify-end">
+                                  <div className="flex-1">
+                                    <p 
+                                      className="text-sm leading-relaxed"
+                                      dangerouslySetInnerHTML={{
+                                        __html: formatMessageText(message.message)
+                                      }}
+                                    />
+                                  </div>
+                                  <span className={`text-xs ml-2 opacity-70 ${
+                                    isOwnMessage ? 'text-green-100' : 'text-gray-400'
+                                  }`}>
+                                    {message.time}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                         )}
