@@ -20,6 +20,7 @@ function App() {
   const [error, setError] = useState(null);
   const [zipHandler, setZipHandler] = useState(null);
   const [selectedAttachment, setSelectedAttachment] = useState(null);
+  const [isDragOver, setIsDragOver] = useState(false);
   const { createObjectUrl, cleanup: cleanupUrls } = useObjectUrls();
 
   // Create color map for users
@@ -110,6 +111,32 @@ function App() {
     }
   };
 
+  // Drag and drop handlers
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      const file = files[0];
+      if (file.type === 'application/zip' || file.name.toLowerCase().endsWith('.zip')) {
+        handleFileUpload({ target: { files: [file] } });
+      } else {
+        setError('Please select a valid ZIP file.');
+      }
+    }
+  };
+
   return (
     <div className="flex h-screen w-screen bg-whatsapp-dark text-white">
       {/* Main Container */}
@@ -130,7 +157,11 @@ function App() {
         <main className="flex-1 overflow-y-auto">
           {/* Show upload interface if no chat loaded */}
           {!chatContent ? (
-            <div className="flex-1 flex items-center justify-center p-6">
+            <div className="flex-1 flex items-center justify-center p-6 bg-whatsapp-dark" style={{
+              backgroundImage: `url("${backgroundImage}")`,
+              backgroundRepeat: 'repeat',
+              backgroundSize: 'auto'
+            }}>
               <div className="w-full max-w-4xl">
                 {/* Error Display */}
                 {error && (
@@ -151,32 +182,38 @@ function App() {
                   </div>
                 )}
 
-                {/* Upload Component */}
-                <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 rounded-lg p-8 text-center hover:border-gray-400 dark:hover:border-gray-500 transition-all duration-200">
-                  <div className="space-y-4">
-                    {/* Icon */}
-                    <div className="mx-auto w-16 h-16 text-gray-400">
-                      {isUploading ? (
-                        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500"></div>
-                      ) : (
-                        <svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                        </svg>
-                      )}
+                {/* WhatsApp-themed Upload Component */}
+                <div 
+                  className={`bg-whatsapp-gray rounded-2xl p-8 shadow-2xl border-2 border-dashed max-w-2xl mx-auto transition-all duration-200 ${
+                    isDragOver 
+                      ? 'border-whatsapp-green bg-green-900 bg-opacity-20' 
+                      : 'border-gray-700'
+                  }`}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                >
+                  <div className="text-center">
+
+                    {/* Upload Icon */}
+                    <div className="mx-auto w-16 h-16 bg-whatsapp-green rounded-full flex items-center justify-center mb-6 shadow-lg">
+                      <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
                     </div>
 
                     {/* Title */}
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        {isUploading ? 'Processing...' : 'Upload WhatsApp Chat'}
-                      </h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                        {isUploading 
-                          ? 'Please wait while we process your chat'
-                          : 'Drag & drop your ZIP file here or click to browse'
-                        }
-                      </p>
-                    </div>
+                    <h3 className="text-2xl font-bold text-white mb-3">
+                      {isUploading ? 'Processing Your Chat...' : 'Upload WhatsApp Chat'}
+                    </h3>
+                    <p className="text-whatsapp-meta text-lg mb-8">
+                      {isUploading 
+                        ? 'Please wait while we process your messages'
+                        : isDragOver
+                        ? 'Drop your ZIP file here'
+                        : 'Drag & drop your ZIP file here or click to browse'
+                      }
+                    </p>
 
                     {/* File Input */}
                     <input
@@ -189,37 +226,92 @@ function App() {
                     />
                     <label
                       htmlFor="file-upload"
-                      className="inline-block px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors cursor-pointer disabled:opacity-50"
+                      className={`inline-flex items-center px-8 py-4 bg-whatsapp-green text-white rounded-xl font-semibold cursor-pointer hover:bg-green-600 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 ${
+                        isUploading ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
                     >
-                      {isUploading ? 'Processing...' : 'Choose ZIP File'}
+                      {isUploading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                          </svg>
+                          Choose ZIP File
+                        </>
+                      )}
                     </label>
 
-                    {/* Instructions */}
-                    {!isUploading && (
-                      <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
-                        <p>• Export your WhatsApp chat with "Attach media" option</p>
-                        <p>• Maximum file size: 500MB</p>
-                        <p>• Supported format: ZIP files only</p>
+                    {/* Privacy Notice */}
+                    <div className="mt-8 p-4 bg-whatsapp-dark bg-opacity-50 rounded-xl border border-gray-600">
+                      <div className="flex items-start space-x-3">
+                        <div className="flex-shrink-0">
+                          <svg className="w-5 h-5 text-whatsapp-green mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                        <div className="text-left">
+                          <p className="text-whatsapp-meta text-sm font-medium mb-1">100% Private & Secure</p>
+                          <p className="text-whatsapp-meta text-xs">
+                            Your data never leaves your device. No server uploads, no data collection.
+                          </p>
+                        </div>
                       </div>
-                    )}
+                    </div>
                   </div>
                 </div>
 
-                {/* Instructions */}
-                <div className="mt-8 text-center text-gray-400 text-sm max-w-2xl mx-auto">
-                  <h3 className="text-lg font-semibold text-white mb-4">
-                    How to use this tool:
+                {/* WhatsApp-themed Instructions */}
+                <div className="mt-8 text-center max-w-2xl mx-auto">
+                  <h3 className="text-xl font-semibold text-white mb-6">
+                    How to export your WhatsApp chat:
                   </h3>
-                  <ol className="text-left space-y-2">
-                    <li>1. Open WhatsApp and go to the chat you want to export</li>
-                    <li>2. Tap the three dots menu → More → Export chat</li>
-                    <li>3. Choose "Attach media" to include photos and files</li>
-                    <li>4. Save the ZIP file to your device</li>
-                    <li>5. Upload the ZIP file here to view your chat</li>
-                  </ol>
-                  <p className="mt-4 text-xs">
-                    🔒 Your data stays completely private - everything is processed locally in your browser
-                  </p>
+                  <div className="bg-whatsapp-gray rounded-2xl p-6 border border-gray-700">
+                    <div className="space-y-4 text-left">
+                      <div className="flex items-start space-x-4">
+                        <span className="w-8 h-8 bg-whatsapp-green rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 mt-0.5">1</span>
+                        <div>
+                          <p className="text-white font-medium">Open WhatsApp</p>
+                          <p className="text-whatsapp-meta text-sm">Go to the chat you want to export</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start space-x-4">
+                        <span className="w-8 h-8 bg-whatsapp-green rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 mt-0.5">2</span>
+                        <div>
+                          <p className="text-white font-medium">Export the chat</p>
+                          <p className="text-whatsapp-meta text-sm">Tap three dots → More → Export chat</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start space-x-4">
+                        <span className="w-8 h-8 bg-whatsapp-green rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 mt-0.5">3</span>
+                        <div>
+                          <p className="text-white font-medium">Include media</p>
+                          <p className="text-whatsapp-meta text-sm">Choose "Attach media" to include photos and files</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start space-x-4">
+                        <span className="w-8 h-8 bg-whatsapp-green rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 mt-0.5">4</span>
+                        <div>
+                          <p className="text-white font-medium">Save and upload</p>
+                          <p className="text-whatsapp-meta text-sm">Save the ZIP file and upload it here</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-6 p-4 bg-whatsapp-dark bg-opacity-50 rounded-xl border border-gray-600">
+                    <div className="flex items-center justify-center space-x-2">
+                      <svg className="w-5 h-5 text-whatsapp-green" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                      </svg>
+                      <p className="text-whatsapp-meta text-sm font-medium">
+                        Your data stays completely private - everything is processed locally in your browser
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -487,7 +579,7 @@ function App() {
                           </div>
                         </div>
                         )}
-                      </div>
+              </div>
             );
           })}
         </div>
@@ -508,30 +600,6 @@ function App() {
           )}
         </main>
 
-        {/* Footer */}
-        <footer className="p-4 bg-whatsapp-header text-gray-400 text-sm border-t border-gray-700">
-          <div className="flex items-center justify-between">
-            <div>
-              {chatContent && (
-                <span>
-                  {messages.length} messages • 
-                  {new Set(messages.map(m => m.sender)).size} participants
-                </span>
-              )}
-            </div>
-            <div className="flex items-center space-x-4">
-              <span>Privacy-first • Local-only</span>
-              {chatContent && (
-                <button
-                  onClick={handleReset}
-                  className="text-blue-400 hover:text-blue-300 transition-colors"
-                >
-                  Upload New Chat
-                </button>
-              )}
-            </div>
-          </div>
-        </footer>
       </div>
 
       {/* Attachment Viewer Modal */}
